@@ -1,25 +1,28 @@
 import { useState, useEffect, useRef } from 'react'
 import styles from './App.module.css'
 
+const GEMINI_API_KEY = 'AIzaSyA8u5u2-rL0IFdJKewRnbJXg_9QJ0MLE1A'
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
+
 const TONES = [
-  { id: 'formal',     label: 'Formal',     icon: '⚖️',  desc: 'Professional & authoritative' },
-  { id: 'warm',       label: 'Warm',       icon: '☀️',  desc: 'Friendly & empathetic' },
-  { id: 'concise',    label: 'Concise',    icon: '⚡',  desc: 'Brief & to the point' },
-  { id: 'technical',  label: 'Technical',  icon: '🔧',  desc: 'Detailed & precise' },
-  { id: 'apologetic', label: 'Apologetic', icon: '🤝',  desc: 'Sincere & reassuring' },
-  { id: 'proactive',  label: 'Proactive',  icon: '🚀',  desc: 'Confident & solutions-focused' },
+  { id: 'formal',     label: 'Formal',     icon: '⚖️', desc: 'Professional & authoritative' },
+  { id: 'warm',       label: 'Warm',       icon: '☀️', desc: 'Friendly & empathetic' },
+  { id: 'concise',    label: 'Concise',    icon: '⚡', desc: 'Brief & to the point' },
+  { id: 'technical',  label: 'Technical',  icon: '🔧', desc: 'Detailed & precise' },
+  { id: 'apologetic', label: 'Apologetic', icon: '🤝', desc: 'Sincere & reassuring' },
+  { id: 'proactive',  label: 'Proactive',  icon: '🚀', desc: 'Confident & solutions-focused' },
 ]
 
 const ME_DOCS = {
   mdm: {
     base: 'https://www.manageengine.com/mobile-device-management/help/',
     logs: 'https://www.manageengine.com/mobile-device-management/how-to/logs-how-to.html',
-    keywords: ['mdm', 'mobile device', 'enrollment', 'profile', 'policy', 'app management', 'ios', 'android', 'remote wipe', 'byod', 'kiosk', 'mobile management'],
+    keywords: ['mdm', 'mobile device', 'enrollment', 'profile', 'policy', 'app management', 'ios', 'android', 'remote wipe', 'byod', 'kiosk'],
   },
   dc: {
     base: 'https://www.manageengine.com/products/desktop-central/help/',
     logs: 'https://www.manageengine.com/products/desktop-central/logs-how-to.html',
-    keywords: ['desktop central', 'desktop', 'patch', 'software deployment', 'remote control', 'inventory', 'windows', 'mac', 'linux', 'endpoint', 'agent', 'configuration management'],
+    keywords: ['desktop central', 'patch', 'software deployment', 'remote control', 'inventory', 'windows', 'mac', 'linux', 'endpoint', 'agent'],
   },
 }
 
@@ -30,30 +33,29 @@ function detectRelevantDocs(text) {
     .map(([key, doc]) => ({ key, ...doc }))
 }
 
-function buildSystemPrompt(relevantDocs) {
+function buildPrompt(thoughts, replyTo, tone, relevantDocs) {
   let docSection = ''
   if (relevantDocs.length > 0) {
-    docSection = `\n\nIMPORTANT: This email relates to ManageEngine products. Embed relevant help documentation links naturally in the email body using markdown [anchor text](URL) format:\n`
+    docSection = `\n\nIMPORTANT: Embed these ManageEngine documentation links naturally in the email using markdown [anchor text](URL) format:\n`
     relevantDocs.forEach(({ key, base, logs }) => {
       if (key === 'mdm') {
         docSection += `• MDM Help Center: ${base}\n• MDM Logs Guide: ${logs}\n`
-      } else if (key === 'dc') {
+      } else {
         docSection += `• Desktop Central Help: ${base}\n• Desktop Central Logs Guide: ${logs}\n`
       }
     })
-    docSection += `\nPlace links where they naturally aid the customer — e.g. "You can follow the steps in our [MDM Enrollment Guide](URL)."`
   }
-  return `You are an expert professional email writer for a ManageEngine support or sales team. Transform the user's rough thoughts into a polished, complete email.
 
-Output ONLY the email body — no subject line label, no meta commentary. Start directly with the greeting (e.g. "Dear [Customer Name],").
+  return `You are an expert professional email writer for a ManageEngine support team. Transform the user's rough thoughts into a polished, complete email.
 
-Requirements:
-- Match the requested tone exactly
-- Use clear, well-structured paragraphs
-- Include a professional sign-off (e.g. "Best regards,\\n[Your Name]")
-- Sound natural, not robotic${docSection}
+Output ONLY the email body. Start with a greeting like "Dear [Customer Name]," and end with a professional sign-off. No subject line, no meta commentary.
 
-Format hyperlinks as markdown: [descriptive text](URL)`
+Tone: ${tone}
+${docSection}
+My rough thoughts:
+${thoughts}${replyTo ? `\n\nEmail I am replying to:\n${replyTo}` : ''}
+
+Write the complete polished email now:`
 }
 
 function renderEmailWithLinks(text) {
@@ -62,39 +64,43 @@ function renderEmailWithLinks(text) {
   let lastIndex = 0
   let match
   while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) result.push(<span key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>)
+    if (match.index > lastIndex)
+      result.push(<span key={`t${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>)
     result.push(
-      <a key={`l-${match.index}`} href={match[2]} target="_blank" rel="noopener noreferrer" className={styles.emailLink}>
+      <a key={`l${match.index}`} href={match[2]} target="_blank" rel="noopener noreferrer" className={styles.emailLink}>
         {match[1]}
       </a>
     )
     lastIndex = match.index + match[0].length
   }
-  if (lastIndex < text.length) result.push(<span key={`t-end`}>{text.slice(lastIndex)}</span>)
+  if (lastIndex < text.length)
+    result.push(<span key="tend">{text.slice(lastIndex)}</span>)
   return result
 }
 
 export default function App() {
-  const [thoughts, setThoughts]       = useState('')
-  const [replyTo, setReplyTo]         = useState('')
-  const [showReply, setShowReply]     = useState(false)
-  const [tone, setTone]               = useState('formal')
-  const [email, setEmail]             = useState('')
-  const [loading, setLoading]         = useState(false)
-  const [copied, setCopied]           = useState(false)
-  const [error, setError]             = useState('')
+  const [thoughts, setThoughts] = useState('')
+  const [replyTo, setReplyTo]   = useState('')
+  const [showReply, setShowReply] = useState(false)
+  const [tone, setTone]         = useState('formal')
+  const [email, setEmail]       = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [copied, setCopied]     = useState(false)
+  const [error, setError]       = useState('')
 
   const canvasRef = useRef(null)
   const outputRef = useRef(null)
 
-  // Animated canvas background
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     let animId, t = 0
 
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
+    const resize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
     resize()
     window.addEventListener('resize', resize)
 
@@ -109,29 +115,24 @@ export default function App() {
     const draw = () => {
       const { width: W, height: H } = canvas
       ctx.clearRect(0, 0, W, H)
-
       const bg = ctx.createLinearGradient(0, 0, W, H)
       bg.addColorStop(0,   '#EBF4FF')
       bg.addColorStop(0.5, '#F0F7FF')
       bg.addColorStop(1,   '#E8F0FE')
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, W, H)
-
       ORBS.forEach((o, i) => {
         const ox = W * o.x + Math.sin(t * 0.0003 + i * 1.2) * 35
         const oy = H * o.y + Math.cos(t * 0.0004 + i * 0.9) * 25
         const g  = ctx.createRadialGradient(ox, oy, 0, ox, oy, o.r)
-        g.addColorStop(0, o.c)
-        g.addColorStop(1, 'transparent')
+        g.addColorStop(0, o.c); g.addColorStop(1, 'transparent')
         ctx.fillStyle = g
         ctx.beginPath(); ctx.arc(ox, oy, o.r, 0, Math.PI * 2); ctx.fill()
       })
-
       ctx.strokeStyle = 'rgba(59,130,246,0.035)'
       ctx.lineWidth = 1
-      for (let x = 0; x < W; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
-      for (let y = 0; y < H; y += 64) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
-
+      for (let x = 0; x < W; x += 64) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke() }
+      for (let y = 0; y < H; y += 64) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke() }
       t++
       animId = requestAnimationFrame(draw)
     }
@@ -143,33 +144,33 @@ export default function App() {
     if (!thoughts.trim()) return
     setLoading(true); setError(''); setEmail('')
 
-    const docs = detectRelevantDocs(thoughts + ' ' + replyTo)
-    const system = buildSystemPrompt(docs)
-    const userContent = `Tone: ${tone}\n\nMy rough thoughts:\n${thoughts}${replyTo ? `\n\nEmail I am replying to:\n${replyTo}` : ''}`
+    const docs   = detectRelevantDocs(thoughts + ' ' + replyTo)
+    const prompt = buildPrompt(thoughts, replyTo, tone, docs)
 
     try {
-      const res  = await fetch('/api/claude/v1/messages', {
+      const res = await fetch(GEMINI_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
-          system,
-          messages: [{ role: 'user', content: userContent }],
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          },
         }),
       })
+
       const data = await res.json()
-      if (data.content?.[0]?.text) {
-        setEmail(data.content[0].text)
+
+      if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        setEmail(data.candidates[0].content.parts[0].text.trim())
         setTimeout(() => outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
+      } else if (data?.error?.message) {
+        setError(`API error: ${data.error.message}`)
       } else {
-        setError('Something went wrong generating your email. Please try again.')
+        setError('Something went wrong. Please try again.')
       }
-    } catch {
+    } catch (e) {
       setError('Network error — please check your connection and try again.')
     }
     setLoading(false)
@@ -177,7 +178,9 @@ export default function App() {
 
   const copy = () => {
     const plain = email.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-    navigator.clipboard.writeText(plain).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500) })
+    navigator.clipboard.writeText(plain).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2500)
+    })
   }
 
   const hasDocs    = detectRelevantDocs(thoughts + ' ' + replyTo).length > 0
@@ -188,11 +191,10 @@ export default function App() {
       <canvas ref={canvasRef} className={styles.bg} />
       <div className={styles.wrap}>
 
-        {/* ── Header ── */}
         <header className={styles.header}>
           <div className={styles.badge}>
             <span className={styles.badgeDot} />
-            AI-Powered Email Composer
+            AI Email Composer
           </div>
           <h1 className={styles.h1}>
             Write <em className={styles.em}>better emails</em>,<br />effortlessly.
@@ -203,10 +205,9 @@ export default function App() {
           </p>
         </header>
 
-        {/* ── Main ── */}
         <main className={styles.main}>
 
-          {/* Step 1 — Thoughts */}
+          {/* Step 1 */}
           <section className={styles.card}>
             <div className={styles.label}>
               <span className={styles.stepNum}>1</span>
@@ -239,7 +240,7 @@ export default function App() {
             )}
           </section>
 
-          {/* Step 2 — Tone */}
+          {/* Step 2 */}
           <section className={styles.card}>
             <div className={styles.label}>
               <span className={styles.stepNum}>2</span>
@@ -260,42 +261,32 @@ export default function App() {
             </div>
           </section>
 
-          {/* Error */}
-          {error && (
-            <div className={styles.errorBox}>
-              <span>⚠️</span> {error}
-            </div>
-          )}
+          {error && <div className={styles.errorBox}><span>⚠️</span> {error}</div>}
 
-          {/* Generate button */}
           <button
             className={styles.generateBtn}
             onClick={generate}
             disabled={loading || !thoughts.trim()}
           >
             {loading ? (
-              <>
-                <span className={styles.spinner} />
-                Crafting your email…
-              </>
+              <><span className={styles.spinner} /> Crafting your email…</>
             ) : (
               <>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 2L11 13" /><path d="M22 2L15 22 11 13 2 9l20-7z" />
+                  <path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/>
                 </svg>
                 Generate Email — {activeTone?.label} Tone
               </>
             )}
           </button>
 
-          {/* Output */}
           {email && (
             <div ref={outputRef} className={styles.outputCard}>
               <div className={styles.outputHeader}>
                 <div className={styles.outputTitle}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="1.5">
-                    <path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z" />
-                    <polyline points="20,6 12,13 4,6" />
+                    <path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/>
+                    <polyline points="20,6 12,13 4,6"/>
                   </svg>
                   Your Polished Email
                 </div>
@@ -305,30 +296,29 @@ export default function App() {
                   ) : (
                     <>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                       </svg>
                       Copy to clipboard
                     </>
                   )}
                 </button>
               </div>
-
               <div className={styles.outputBody}>
                 <p className={styles.emailText}>{renderEmailWithLinks(email)}</p>
                 {hasDocs && (
                   <div className={styles.docNote}>
                     <span>📚</span>
-                    <span>ManageEngine documentation links have been embedded based on your topic. Click any link to verify the exact resource before sharing with your customer.</span>
+                    <span>ManageEngine documentation links have been embedded based on your topic. Click any link to verify before sharing with your customer.</span>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Footer */}
           <footer className={styles.footer}>
             <p>
-              Powered by Claude AI &nbsp;·&nbsp; ManageEngine resources:&nbsp;
+              Powered by Google Gemini &nbsp;·&nbsp; ManageEngine resources:&nbsp;
               <a href="https://www.manageengine.com/mobile-device-management/help/" target="_blank" rel="noopener noreferrer">MDM Help</a>
               &nbsp;·&nbsp;
               <a href="https://www.manageengine.com/mobile-device-management/how-to/logs-how-to.html" target="_blank" rel="noopener noreferrer">MDM Logs</a>
