@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import styles from './App.module.css'
 
+const GROQ_API_KEY = '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'
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+
 const TONES = [
   { id: 'formal',     label: 'Formal',     icon: '⚖️', desc: 'Professional & authoritative' },
   { id: 'warm',       label: 'Warm',       icon: '☀️', desc: 'Friendly & empathetic' },
@@ -16,89 +19,15 @@ const ME_DOCS = {
     url: 'https://www.manageengine.com/mobile-device-management/help/',
     logsLabel: 'MDM Logs Guide',
     logsUrl: 'https://www.manageengine.com/mobile-device-management/how-to/logs-how-to.html',
-    keywords: ['mdm', 'mobile device', 'enrollment', 'enroll', 'profile', 'policy', 'app management', 'ios', 'android', 'remote wipe', 'byod', 'kiosk', 'device'],
+    keywords: ['mdm', 'mobile device', 'enrollment', 'enroll', 'profile', 'policy', 'ios', 'android', 'remote wipe', 'byod', 'kiosk', 'device management'],
   },
   dc: {
     label: 'Desktop Central Help',
     url: 'https://www.manageengine.com/products/desktop-central/help/',
     logsLabel: 'Desktop Central Logs Guide',
     logsUrl: 'https://www.manageengine.com/products/desktop-central/logs-how-to.html',
-    keywords: ['desktop central', 'patch', 'software deployment', 'remote control', 'inventory', 'windows', 'mac', 'linux', 'endpoint', 'agent', 'configuration', 'desktop'],
+    keywords: ['desktop central', 'patch', 'software deployment', 'remote control', 'inventory', 'windows', 'mac', 'linux', 'endpoint', 'agent', 'configuration'],
   },
-}
-
-const TONE_CONFIG = {
-  formal: {
-    greeting: 'Dear Valued Customer,',
-    signoff: 'Yours sincerely,\n[Your Name]\nManageEngine Support Team',
-    openers: ['We are writing to inform you that', 'Please be advised that', 'We would like to bring to your attention that', 'This is to inform you that'],
-    closers: ['Please do not hesitate to contact us should you require any further assistance.', 'We remain at your disposal for any additional queries.', 'Kindly reach out to us if you need further clarification.'],
-    replyAck: 'Thank you for your email. We have carefully reviewed your message and are pleased to provide you with the following response.',
-    troubleshootOpener: 'We acknowledge your report regarding the issue you have encountered and would like to provide you with the necessary guidance to resolve it.',
-    docIntro: 'To assist you further, we would like to direct you to the following official resources:',
-  },
-  warm: {
-    greeting: 'Hi there,',
-    signoff: 'Warm regards,\n[Your Name]\nManageEngine Support Team',
-    openers: ["Hope you're doing well!", "Thanks so much for getting in touch!", "We appreciate you reaching out!", "Hope this message finds you well!"],
-    closers: ["We're always here if you need anything else — don't hesitate to ask!", "Feel free to reach out anytime, we're happy to help!", "Looking forward to hearing from you, and we're here every step of the way!"],
-    replyAck: "Thanks so much for your email! We've had a good look at everything you shared and here's what we found.",
-    troubleshootOpener: "We totally understand how frustrating technical issues can be, and we're right here to help you sort this out!",
-    docIntro: 'To help you out, here are some handy resources that should point you in the right direction:',
-  },
-  concise: {
-    greeting: 'Hi,',
-    signoff: 'Best,\n[Your Name]',
-    openers: ['Quick update:', 'Just to let you know —', 'Following up on your query:', 'Here is what you need:'],
-    closers: ['Let us know if you need anything else.', 'Happy to help if you have questions.', 'Reach out if you need more info.'],
-    replyAck: 'Thanks for your email. Here is our response:',
-    troubleshootOpener: 'We have reviewed your issue. Here are the steps to resolve it:',
-    docIntro: 'Helpful resources:',
-  },
-  technical: {
-    greeting: 'Dear Customer,',
-    signoff: 'Technical Regards,\n[Your Name]\nManageEngine Technical Support',
-    openers: ['Following our analysis of your reported issue,', 'Upon reviewing your case,', 'Based on the technical details provided,', 'After investigating the root cause,'],
-    closers: ['Please review the referenced documentation and log files to proceed with the recommended resolution steps. Contact us if the issue persists after following these steps.', 'Kindly follow the above steps sequentially and refer to the documentation provided. Do not hesitate to escalate if the issue remains unresolved after completing all steps.'],
-    replyAck: 'Thank you for providing the details in your email. Upon reviewing your message, we have the following technical response.',
-    troubleshootOpener: 'Following our analysis of the reported issue, we have identified the steps required to diagnose and resolve the problem.',
-    docIntro: 'Please refer to the following technical documentation for detailed steps and log analysis procedures:',
-  },
-  apologetic: {
-    greeting: 'Dear Valued Customer,',
-    signoff: 'Sincerely,\n[Your Name]\nManageEngine Support Team',
-    openers: ['We sincerely apologize for the inconvenience this has caused you.', 'We are truly sorry for the experience you have had.', 'Please accept our heartfelt apologies for the trouble this has caused.', 'We deeply regret any frustration this situation may have caused.'],
-    closers: ['We truly value your patience and understanding, and we are committed to making this right for you.', 'Thank you for your continued patience — we are doing everything we can to resolve this as quickly as possible.', 'Your satisfaction is our top priority, and we sincerely apologize again for this experience.'],
-    replyAck: 'Thank you for reaching out and bringing this to our attention. We sincerely apologize for the experience described in your email.',
-    troubleshootOpener: 'We sincerely apologize for the inconvenience this issue has caused. We understand this has disrupted your workflow and we want to resolve it as quickly as possible.',
-    docIntro: 'To help resolve this as quickly as possible, please refer to the following resources:',
-  },
-  proactive: {
-    greeting: 'Hi,',
-    signoff: 'Best regards,\n[Your Name]\nManageEngine Support Team',
-    openers: ["Great news — we have a solution ready for you!", "We have identified the next steps to resolve your issue.", "We are ready to help you move forward quickly!", "We have everything you need to get this resolved today."],
-    closers: ["Let us know when you are ready to proceed and we will guide you through every step!", "We are confident this will resolve your issue — reach out and we will get started right away!", "Take action on the above steps today and do not hesitate to contact us for real-time support!"],
-    replyAck: "Thanks for your email — we reviewed it straight away and we are ready with a clear action plan!",
-    troubleshootOpener: "We have proactively reviewed your issue and identified exactly what needs to be done to get you back on track.",
-    docIntro: 'Here are the exact resources you need to resolve this quickly:',
-  },
-}
-
-const pick = arr => arr[Math.floor(Math.random() * arr.length)]
-
-function detectIntent(text) {
-  const lower = text.toLowerCase()
-  const intents = []
-  if (lower.match(/fail|error|issue|problem|not working|broken|crash|trouble|cannot|can't|won't|doesn't/)) intents.push('troubleshoot')
-  if (lower.match(/follow.?up|checking|update|status|progress|any news/)) intents.push('followup')
-  if (lower.match(/thank|appreciate|grateful|great job|excellent/)) intents.push('gratitude')
-  if (lower.match(/sorry|apologize|apology|regret|mistake|inconvenience/)) intents.push('apology')
-  if (lower.match(/install|setup|configure|deploy|implement|how to/)) intents.push('guide')
-  if (lower.match(/log|debug|trace|diagnose|investigate/)) intents.push('logs')
-  if (lower.match(/enroll|register|add device|onboard/)) intents.push('enrollment')
-  if (lower.match(/patch|update|upgrade|version/)) intents.push('patch')
-  if (lower.match(/licen|subscription|renew|expire|billing/)) intents.push('license')
-  return intents.length > 0 ? intents : ['general']
 }
 
 function detectDocs(text) {
@@ -108,81 +37,27 @@ function detectDocs(text) {
     .map(([key, doc]) => ({ key, ...doc }))
 }
 
-function cleanAndSplit(thoughts) {
-  return thoughts
-    .split(/[.\n!?]+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 4)
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-}
-
-function buildDocSection(docs, config, intents) {
-  if (docs.length === 0) return ''
-  const needsLogs = intents.includes('logs') || intents.includes('troubleshoot')
-  let section = config.docIntro + '\n\n'
-  docs.forEach(doc => {
-    section += `• [${doc.label}](${doc.url})\n`
-    if (needsLogs) section += `• [${doc.logsLabel}](${doc.logsUrl})\n`
-  })
-  return section.trim()
-}
-
-function generateEmail(thoughts, replyTo, tone) {
-  const config  = TONE_CONFIG[tone]
-  const intents = detectIntent(thoughts + ' ' + replyTo)
-  const docs    = detectDocs(thoughts + ' ' + replyTo)
-  const sentences = cleanAndSplit(thoughts)
-  const isTroubleshoot = intents.includes('troubleshoot') || intents.includes('logs')
-
-  let email = ''
-
-  // Greeting
-  email += config.greeting + '\n\n'
-
-  // Reply acknowledgement or opener
-  if (replyTo && replyTo.trim()) {
-    email += config.replyAck + '\n\n'
-  } else if (isTroubleshoot) {
-    email += config.troubleshootOpener + '\n\n'
-  } else {
-    email += pick(config.openers) + ' '
-    if (sentences.length > 0) {
-      const first = sentences[0]
-      email += (first.charAt(0).toLowerCase() + first.slice(1)) + '.\n\n'
-    } else {
-      email += '\n\n'
-    }
+function buildSystemPrompt(docs) {
+  let docSection = ''
+  if (docs.length > 0) {
+    docSection = `\n\nThis email relates to ManageEngine products. Where genuinely helpful, embed these documentation links naturally in the email body as markdown [link text](URL):\n`
+    docs.forEach(doc => {
+      docSection += `- [${doc.label}](${doc.url})\n`
+      docSection += `- [${doc.logsLabel}](${doc.logsUrl})\n`
+    })
+    docSection += `Only include links where they truly help the customer — never force them in.`
   }
 
-  // Body sentences
-  const bodyStart = (replyTo || isTroubleshoot) ? 0 : 1
-  const bodySentences = sentences.slice(bodyStart)
+  return `You are an expert professional email writer for a ManageEngine support team. Transform a support agent's rough notes or scenario into a polished, complete, customer-facing email.
 
-  if (bodySentences.length > 0) {
-    if (tone === 'concise') {
-      email += bodySentences.map(s => `• ${s}`).join('\n') + '\n\n'
-    } else if (tone === 'technical') {
-      email += 'Please follow the steps below:\n\n'
-      email += bodySentences.map((s, i) => `${i + 1}. ${s}`).join('\n') + '\n\n'
-    } else {
-      // Natural paragraphs — 2 sentences per paragraph
-      for (let i = 0; i < bodySentences.length; i += 2) {
-        email += bodySentences.slice(i, i + 2).join(' ') + '\n\n'
-      }
-    }
-  }
-
-  // Doc references
-  const docSection = buildDocSection(docs, config, intents)
-  if (docSection) email += docSection + '\n\n'
-
-  // Closing
-  email += pick(config.closers) + '\n\n'
-
-  // Sign-off
-  email += config.signoff
-
-  return email
+Rules:
+- Output ONLY the email body. Start directly with the greeting (e.g. "Dear [Customer Name],").
+- Do NOT include a subject line, meta labels, or any commentary outside the email.
+- Write naturally and fluently — never robotic or template-like.
+- Match the tone requested exactly.
+- Adapt length to complexity — simple issues get short emails, complex ones get detailed emails.
+- Always close with a professional sign-off: "Best regards,\n[Your Name]\nManageEngine Support Team"
+- Format documentation links as markdown: [anchor text](URL)${docSection}`
 }
 
 function renderEmailWithLinks(text) {
@@ -204,13 +79,14 @@ function renderEmailWithLinks(text) {
 }
 
 export default function App() {
-  const [thoughts, setThoughts]     = useState('')
+  const [scenario, setScenario]     = useState('')
   const [replyTo, setReplyTo]       = useState('')
   const [showReply, setShowReply]   = useState(false)
   const [tone, setTone]             = useState('formal')
   const [email, setEmail]           = useState('')
-  const [generating, setGenerating] = useState(false)
+  const [loading, setLoading]       = useState(false)
   const [copied, setCopied]         = useState(false)
+  const [error, setError]           = useState('')
 
   const canvasRef = useRef(null)
   const outputRef = useRef(null)
@@ -252,22 +128,57 @@ export default function App() {
     return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize) }
   }, [])
 
-  const generate = () => {
-    if (!thoughts.trim()) return
-    setGenerating(true); setEmail('')
-    setTimeout(() => {
-      setEmail(generateEmail(thoughts, replyTo, tone))
-      setGenerating(false)
-      setTimeout(() => outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
-    }, 700)
+  const generate = async () => {
+    if (!scenario.trim()) return
+    setLoading(true); setError(''); setEmail('')
+
+    const docs = detectDocs(scenario + ' ' + replyTo)
+    const systemPrompt = buildSystemPrompt(docs)
+    const userMessage = `Write a ${tone} professional customer email for this situation:\n\n${scenario}${replyTo ? `\n\nCustomer's original email to reply to:\n"""\n${replyTo}\n"""` : ''}`
+
+    try {
+      const res = await fetch(GROQ_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data?.choices?.[0]?.message?.content) {
+        setEmail(data.choices[0].message.content.trim())
+        setTimeout(() => outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
+      } else if (data?.error?.message) {
+        setError(`Error: ${data.error.message}`)
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
+    } catch (e) {
+      setError('Network error. Please try again.')
+    }
+
+    setLoading(false)
   }
 
   const copy = () => {
     const plain = email.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-    navigator.clipboard.writeText(plain).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500) })
+    navigator.clipboard.writeText(plain).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2500)
+    })
   }
 
-  const hasDocs    = detectDocs(thoughts + ' ' + replyTo).length > 0
+  const hasDocs    = detectDocs(scenario + ' ' + replyTo).length > 0
   const activeTone = TONES.find(t => t.id === tone)
 
   return (
@@ -278,48 +189,45 @@ export default function App() {
         <header className={styles.header}>
           <div className={styles.badge}>
             <span className={styles.badgeDot} />
-            Smart Email Composer
+            AI Email Composer
           </div>
           <h1 className={styles.h1}>
             Write <em className={styles.em}>better emails</em>,<br />effortlessly.
           </h1>
           <p className={styles.sub}>
-            Turn rough thoughts into polished professional emails — with smart ManageEngine
-            documentation links included automatically.
+            Describe your situation in plain words — AI writes a polished,
+            professional customer email instantly.
           </p>
-          <div className={styles.pills}>
-            <span className={styles.pill}>✓ No API key</span>
-            <span className={styles.pill}>✓ No limits</span>
-            <span className={styles.pill}>✓ 100% free</span>
-            <span className={styles.pill}>✓ Works instantly</span>
-          </div>
         </header>
 
         <main className={styles.main}>
 
+          {/* Step 1 */}
           <section className={styles.card}>
             <div className={styles.label}>
               <span className={styles.stepNum}>1</span>
-              What do you want to say?
+              Describe your situation or paste raw content
             </div>
             <textarea
               className={styles.textarea}
-              rows={5}
-              placeholder="e.g. tell the customer their device enrollment is failing because the MDM profile wasn't accepted, ask them to retry and check the agent logs..."
-              value={thoughts}
-              onChange={e => setThoughts(e.target.value)}
+              rows={6}
+              placeholder={"Paste your raw notes, scenario, or bullet points here. For example:\n\n• Customer's MDM enrollment is failing — profile not accepted on iPhone. Need to ask them to re-enroll and check logs.\n\n• Following up on ticket #4521. Issue resolved after patch. Thank them for patience.\n\n• Customer upset about downtime. Apologise and explain the maintenance window."}
+              value={scenario}
+              onChange={e => setScenario(e.target.value)}
             />
-            <div className={styles.charCount}>{thoughts.length} characters</div>
+            <div className={styles.charCount}>{scenario.length} characters</div>
+
             <button className={styles.toggleBtn} onClick={() => setShowReply(p => !p)}>
-              {showReply ? '✕ Remove' : '+ Add'} the email you&apos;re replying to
+              {showReply ? '✕ Remove' : '+ Add'} the customer email you&apos;re replying to
             </button>
+
             {showReply && (
               <div className={styles.replySection}>
-                <div className={styles.replyLabel}>Original Email (optional context)</div>
+                <div className={styles.replyLabel}>📧 Customer's Original Email</div>
                 <textarea
                   className={`${styles.textarea} ${styles.textareaAlt}`}
-                  rows={4}
-                  placeholder="Paste the customer's email here for more contextual responses..."
+                  rows={5}
+                  placeholder="Paste the customer's email here. The AI will read it and write a proper reply..."
                   value={replyTo}
                   onChange={e => setReplyTo(e.target.value)}
                 />
@@ -327,6 +235,7 @@ export default function App() {
             )}
           </section>
 
+          {/* Step 2 */}
           <section className={styles.card}>
             <div className={styles.label}>
               <span className={styles.stepNum}>2</span>
@@ -347,9 +256,19 @@ export default function App() {
             </div>
           </section>
 
-          <button className={styles.generateBtn} onClick={generate} disabled={generating || !thoughts.trim()}>
-            {generating ? (
-              <><span className={styles.spinner} /> Composing your email…</>
+          {error && (
+            <div className={styles.errorBox}>
+              <span>⚠️</span> {error}
+            </div>
+          )}
+
+          <button
+            className={styles.generateBtn}
+            onClick={generate}
+            disabled={loading || !scenario.trim()}
+          >
+            {loading ? (
+              <><span className={styles.spinner} /> AI is writing your email…</>
             ) : (
               <>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -371,7 +290,9 @@ export default function App() {
                   Your Polished Email
                 </div>
                 <button className={`${styles.copyBtn} ${copied ? styles.copyDone : ''}`} onClick={copy}>
-                  {copied ? <><span>✓</span> Copied!</> : (
+                  {copied ? (
+                    <><span>✓</span> Copied!</>
+                  ) : (
                     <>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <rect x="9" y="9" width="13" height="13" rx="2"/>
@@ -396,7 +317,7 @@ export default function App() {
 
           <footer className={styles.footer}>
             <p>
-              ManageEngine resources:&nbsp;
+              Powered by Groq AI &nbsp;·&nbsp; ManageEngine resources:&nbsp;
               <a href="https://www.manageengine.com/mobile-device-management/help/" target="_blank" rel="noopener noreferrer">MDM Help</a>
               &nbsp;·&nbsp;
               <a href="https://www.manageengine.com/mobile-device-management/how-to/logs-how-to.html" target="_blank" rel="noopener noreferrer">MDM Logs</a>
