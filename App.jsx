@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import styles from './App.module.css'
 
 const GEMINI_API_KEY = 'AIzaSyA8u5u2-rL0IFdJKewRnbJXg_9QJ0MLE1A'
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
 
 const TONES = [
   { id: 'formal',     label: 'Formal',     icon: '⚖️', desc: 'Professional & authoritative' },
